@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghumloo Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        
+        .chat-container {
+            width: 100%;
+            max-width: 600px;
+            height: 90vh; 
+            max-height: 800px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background-color: #ffffff;
+        }
+
+        
+        .chat-header {
+            background-color: #3f51b5; 
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            font-weight: 700;
+            font-size: 1.2em;
+        }
+
+        
+        .chat-messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background-color: #e9ecef;
+        }
+
+        
+        .message {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 20px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background-color: #3f51b5; 
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .ai-message {
+            align-self: flex-start;
+            background-color: #ffffff; 
+            color: #333;
+            border: 1px solid #ddd;
+            border-bottom-left-radius: 5px;
+        }
+
+        
+        .chat-input {
+            padding: 15px 20px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            background-color: #fff;
+        }
+
+        .chat-input input[type="text"] {
+            flex-grow: 1;
+            padding: 10px 15px;
+            border: 1px solid #ced4da;
+            border-radius: 25px;
+            font-size: 1em;
+            margin-right: 10px;
+            transition: border-color 0.3s;
+        }
+
+        .chat-input input[type="text"]:focus {
+            outline: none;
+            border-color: #3f51b5;
+            box-shadow: 0 0 5px rgba(63, 81, 181, 0.2);
+        }
+
+        .chat-input button {
+            background-color: #4CAF50; 
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-weight: 700;
+        }
+
+        .chat-input button:hover {
+            background-color: #45a049;
+        }
+        
+        
+        .loading-dots {
+            align-self: flex-start;
+            background-color: #e0e0e0;
+            padding: 10px 20px;
+            border-radius: 20px;
+            border-bottom-left-radius: 5px;
+            display: none; 
+        }
+
+        .loading-dots span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            margin: 0 2px;
+            background-color: #3f51b5;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        
+        @media (max-width: 768px) {
+            .chat-container {
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+            body {
+                min-height: 100vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            🏨 Ghumloo Assistant
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            </div>
+        <div class="loading-dots" id="loading-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        <form id="chat-form" class="chat-input">
+            <input type="hidden" id="session_id" value="{{ session_id }}">
+            <input type="text" id="user-input" placeholder="Type here..." autocomplete="off" required>
+            <button type="submit" id="send-button">send</button>
+        </form>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const loadingDots = document.getElementById('loading-dots');
+        const session_id = document.getElementById('session_id').value;
+
+        
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+    
+        function appendMessage(sender, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(sender + '-message');
+            
+        
+            let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); 
+            formattedText = formattedText.replace(/(\r\n|\n|\r)/g, '<br>'); 
+
+            messageDiv.innerHTML = formattedText;
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+    
+        window.onload = function() {
+          
+            scrollToBottom();
+        };
+
+        
+        chatForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const message = userInput.value.trim();
+            if (!message) return;
+
+        
+            appendMessage('user', message);
+            userInput.value = '';
+            
+            
+            loadingDots.style.display = 'block';
+            scrollToBottom();
+
+            
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message, session_id: session_id }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                
+                appendMessage('ai', data.response);
+
+            } catch (error) {
+                console.error('Error fetching chat response:', error);
+                appendMessage('ai', 'क्षमा करें, आपके अनुरोध को संसाधित करने में कोई त्रुटि आई। कृपया बाद में पुन: प्रयास करें।');
+            } finally {
+                
+                loadingDots.style.display = 'none';
+                scrollToBottom();
+            }
+        });
+    </script>
+</body>
+</html>
