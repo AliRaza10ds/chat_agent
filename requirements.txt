@@ -1,5 +1,7 @@
 flask
 requests
+pandas
+numpy
 python-dotenv
 langchain-core
 langchain-google-genai
