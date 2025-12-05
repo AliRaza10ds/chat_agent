@@ -8,6 +8,12 @@ from langchain.agents import create_agent
 from dotenv import load_dotenv
 import datetime
 import json
+from datetime import datetime, timedelta
+from langchain_core.tools import tool
+import requests
+import re
+from langchain.agents import create_agent
+from langchain_core.tracers.context import tracing_v2_enabled
 
 
 load_dotenv()
@@ -19,21 +25,45 @@ app = Flask(__name__)
 HOTEL_LIST_API = "https://apibook.ghumloo.com/api/mobile/get-hotel"
 RATE_PLAN_API = "https://partner.ghumloo.com/api/rate-plan-by-hotel"
 
+from datetime import datetime, timedelta
+from langchain_core.tools import tool
+import requests
+import re
+
+HOTEL_LIST_API = "https://apibook.ghumloo.com/api/mobile/get-hotel"
+RATE_PLAN_API = "https://partner.ghumloo.com/api/rate-plan-by-hotel"
+
+
+
 @tool
-def get_hotels(hotal_name: str):
+def get_hotels(user_query: str):
+    """
+    Fetches hotels list using 'hotal_name'or 'city' or 'state' or 'amenities' or anything provided by the user (GET request).
+    """
+    params = {"search":user_query}
+
+    response = requests.get(HOTEL_LIST_API, params=params)
+
+    #print("\n--- HOTEL API RAW by ---")
+    #print(response.text)
+    #print("----------------------\n")
+
+    return response.json()
+
+@tool
+def get_hotels_id(hotal_name: str):
     """
     Fetches hotel list using 'hotal_name' (GET request).
     """
-    params = {"search": hotal_name}
-    try:
-        response = requests.get(HOTEL_LIST_API, params=params, timeout=10)
-        response.raise_for_status()
-        # print("\n--- HOTEL API RAW by ---")
-        # print(response.text)
-        # print("----------------------\n")
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API request failed: {e}"}
+    params = {"hotal_name":hotal_name}
+
+    response = requests.get(HOTEL_LIST_API, params=params)
+
+    #print("\n--- HOTEL API RAW ---")
+    #print(response.text)
+    #print("----------------------\n")
+
+    return response.json()
 
 @tool
 def get_rate_plan(hotel_id: int, checkIn: str, checkOut: str):
@@ -41,11 +71,12 @@ def get_rate_plan(hotel_id: int, checkIn: str, checkOut: str):
     Fetches rate plan using GET request.
     Dates MUST be in YYYY-MM-DD format.
     """
-    # Safety: validate date format
+    
+    import datetime
     try:
         datetime.datetime.strptime(checkIn, "%Y-%m-%d")
         datetime.datetime.strptime(checkOut, "%Y-%m-%d")
-    except ValueError:
+    except:
         return {"error": "Dates must be in YYYY-MM-DD format"}
 
     params = {
@@ -53,15 +84,22 @@ def get_rate_plan(hotel_id: int, checkIn: str, checkOut: str):
         "checkIn": checkIn,
         "checkOut": checkOut
     }
-    try:
-        response = requests.get(RATE_PLAN_API, params=params, timeout=10)
-        response.raise_for_status()
-        # print("\n--- RATE PLAN API RAW ---")
-        # print(response.text)
-        # print("--------------------------\n")
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"API request failed: {e}"}
+
+    response = requests.get(RATE_PLAN_API, params=params)
+
+    #print("\n--- RATE PLAN API RAW ---")
+    #print(response.text)
+    #print("--------------------------\n")
+
+    return response.json()
+
+@tool
+def get_current_date():
+    """Returns today's real system date in YYYY-MM-DD format."""
+    from datetime import datetime
+    return datetime.now().strftime("%Y-%m-%d")
+
+
 # --- Agent Initialization ---
 
 llm = ChatGoogleGenerativeAI(
