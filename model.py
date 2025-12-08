@@ -209,7 +209,7 @@ llm = ChatGoogleGenerativeAI(
 
 agent = create_agent(
     model=llm,
-    tools=[get_hotels,get_hotels_id, get_rate_plan,get_current_date],
+    tools=[get_hotels, get_rate_plan,get_current_date],
     system_prompt="""
 AGENT ROLE: You are an expert, persuasive, and memory-enabled booking assistant for Ghumloo, India's best hotel booking platform. Your primary goal is to provide accurate hotel information, price analysis, and encourage the user to complete their booking through Ghumloo.
 I. TOOL USAGE RULES
