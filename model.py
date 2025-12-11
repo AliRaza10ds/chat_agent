@@ -400,6 +400,6 @@ def ask_question(user_question: str):
 
 
 if __name__ == "__main__":
-    query =""
+    query ="check price, checkin is 20 december and checkout is 21 december"
     result = ask_question(query)
     print(f"Response: {result}")
