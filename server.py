@@ -1,119 +1,51 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from app_main import ask_question  
-'''
-app = FastAPI()
+import os
+from flask import Flask, render_template, request, jsonify
+from dotenv import load_dotenv
 
-class Query(BaseModel):
-    message: str
+load_dotenv()
 
-@app.post("/ask")
-async def ask_agent(query: Query):
-    response = ask_question(query.message)
-    return {"reply": response}
-'''
-'''
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from app_main import ask_question  
+from model import ask_question, conversation_history 
 
-app = FastAPI()
+app = Flask(__name__)
 
-class Query(BaseModel):
-    message: str
+conversation_history_sessions = {}  
 
-@app.post("/ask")
-async def ask_agent(query: Query):
-    try:
-        response = ask_question(query.message)
+MAX_HISTORY = 5
 
-        
-        if not response:
-            return JSONResponse(
-                status_code=404,
-                content={"status": False , "message": "No answer found"}
-            )
+@app.route('/')
+def index():
+    session_id = request.cookies.get('session_id', str(os.getpid()))
+    if session_id not in conversation_history_sessions:
+        conversation_history_sessions[session_id] = []
+    return render_template('index.html', session_id=session_id)
 
-        
-        if "maximum retries" in response.lower():
-            return JSONResponse(
-                status_code=429,
-                content={"status": False, "message": "Maximum retry limit reached"}
-            )
 
-        
-        return JSONResponse(
-            status_code=200,
-            content={"status": True,"message":"data fetched successfully","data":response}
-        )
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+    user_question = data.get('message')
+    session_id = data.get('session_id')
 
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"status":False , "message": f"Internal Server Error: {str(e)}"}
-        )
-'''
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from app_main import ask_question  
+    if not user_question or not session_id:
+        return jsonify({"error": "Missing message or session ID"}), 400
 
-app = FastAPI()
+    if session_id not in conversation_history_sessions:
+        conversation_history_sessions[session_id] = []
 
-class Query(BaseModel):
-    message: str
+    response_text = ask_question(user_question)
 
-@app.post("/ask")
-async def ask_agent(query: Query):
-    try:
-        response = ask_question(query.message)
-        
-        if not response:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "status": False,
-                    "message": "No answer found",
-                    "data": [{"answer": None}]
-                }
-            )
-        
-        if "maximum retries" in response.lower():
-            return JSONResponse(
-                status_code=429,
-                content={
-                    "status": False,
-                    "message": "Maximum retry limit reached",
-                    "data": [{"answer": None}]
-                }
-            )
-        
-        if "bad gateway" in response.lower():
-            return JSONResponse(
-                status_code=502,
-                content={
-                    "status": False,
-                    "message": "Bad Gateway",
-                    "data": [{"answer": None}]
-                }
-            )
-        
-        return JSONResponse(
-            status_code=200,
-            content={
-                "status": True,
-                "message": "Data fetched successfully",
-                "data": [{"answer": response}]
-            }
-        )
+    history = conversation_history_sessions[session_id]
+    history.append({"user": user_question, "bot": response_text})
 
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status": False,
-                "message": f"Internal Server Error: {str(e)}",
-                "data": [{"answer": None}]
-            }
-        )
+    if len(history) > MAX_HISTORY:
+        history = history[-MAX_HISTORY:]
+    conversation_history_sessions[session_id] = history
+
+    return jsonify({"response": response_text})
+
+if __name__ == "__main__":
+    if not os.getenv("GOOGLE_API_KEY"):
+        print("🚨 GOOGLE_API_KEY not set!")
+    else:
+        print("🌍 Flask app starting on http://127.0.0.1:5000")
+        app.run(debug=True, port=5000)
